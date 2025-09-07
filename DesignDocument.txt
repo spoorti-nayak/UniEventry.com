@@ -1,0 +1,438 @@
+# UniEventry.com - Technical Design Document
+
+## Table of Contents
+
+1. System Overview
+2. Data to Track
+3. Database Schema
+4. API Design
+5. Workflows
+6. Assumptions & Edge Cases
+7. Security Considerations
+8. Performance Considerations
+
+## System Overview
+
+UniEventry.com is a comprehensive university event management platform that facilitates event discovery, registration, attendance tracking, and feedback collection for campus communities.
+
+### Core Functionality
+
+* Event Management: Create, update, and manage campus events
+* Student Registration: Register for events with waitlist support
+* Attendance Tracking: QR code-based check-in system
+* Feedback System: Post-event rating and feedback collection
+* Certificate Generation: Automated certificate creation for attended events
+* Analytics & Reporting: Event performance and attendance analytics
+
+## Data to Track
+
+### Primary Data Entities
+
+#### 1. Event Data
+
+* Basic Information: Title, description, location, event type
+* Scheduling: Start time, end time, duration
+* Capacity Management: Maximum capacity, current registrations
+* Status Tracking: Draft, scheduled, active, completed, cancelled
+* Media: Event images, promotional materials
+* Metadata: Creation timestamp, last updated, creator ID
+
+#### 2. Student Registration Data
+
+* Registration Details: Student ID, event ID, registration timestamp
+* Status Tracking: Registered, waitlisted, cancelled
+* Waitlist Management: Position in queue, promotion history
+* Communication: Registration confirmations, reminders
+
+#### 3. Attendance Data
+
+* Check-in Records: Student ID, event ID, check-in timestamp
+* Verification: QR token validation, attendance method
+* Late Arrivals: Grace period handling, partial attendance
+
+#### 4. Feedback Data
+
+* Ratings: Numerical scores (1-5 scale)
+* Comments: Textual feedback, suggestions
+* Categories: Event quality, content relevance, organization
+* Anonymity: Optional anonymous feedback support
+
+#### 5. User Data
+
+* Student Profiles: Name, email, college affiliation, year
+* Admin Profiles: Staff information, permissions, college association
+* Authentication: Secure login credentials, session management
+
+#### 6. Analytics Data
+
+* Event Metrics: Registration rates, attendance rates, feedback scores
+* User Engagement: Event participation history, preferences
+* Trend Analysis: Popular event types, peak registration times
+
+## Database Schema
+
+### Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    COLLEGES ||--o{ EVENTS : hosts
+    COLLEGES ||--o{ STUDENTS : enrolls
+    COLLEGES ||--o{ ADMINS : employs
+    
+    EVENTS ||--o{ REGISTRATIONS : accepts
+    EVENTS ||--o{ ATTENDANCE : tracks
+    EVENTS ||--o{ FEEDBACK : receives
+    EVENTS ||--o{ EVENT_NOTES : contains
+    EVENTS ||--o{ ATTENDANCE_TOKENS : generates
+    
+    STUDENTS ||--o{ REGISTRATIONS : makes
+    STUDENTS ||--o{ ATTENDANCE : records
+    STUDENTS ||--o{ FEEDBACK : provides
+    STUDENTS ||--o{ EVENT_NOTES : writes
+    STUDENTS ||--o{ ATTENDANCE_TOKENS : uses
+    
+    ADMINS ||--o{ EVENTS : creates
+    
+    COLLEGES {
+        string id PK
+        string name
+        string domain
+        string location
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    EVENTS {
+        string id PK
+        string title
+        text description
+        string location
+        string eventType
+        datetime startTime
+        datetime endTime
+        int capacity
+        string status
+        string imageUrl
+        string collegeId FK
+        string createdBy FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    STUDENTS {
+        string id PK
+        string name
+        string email
+        string year
+        string major
+        string collegeId FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    ADMINS {
+        string id PK
+        string name
+        string email
+        string role
+        string department
+        string collegeId FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    REGISTRATIONS {
+        string id PK
+        string eventId FK
+        string studentId FK
+        string collegeId FK
+        string status
+        int position
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    ATTENDANCE {
+        string id PK
+        string eventId FK
+        string studentId FK
+        string collegeId FK
+        string method
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    FEEDBACK {
+        string id PK
+        string eventId FK
+        string studentId FK
+        int rating
+        text comment
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    EVENT_NOTES {
+        string id PK
+        string eventId FK
+        string studentId FK
+        text content
+        timestamp createdAt
+        timestamp updatedAt
+    }
+    
+    ATTENDANCE_TOKENS {
+        string id PK
+        string eventId FK
+        string studentId FK
+        string token
+        boolean used
+        datetime expiresAt
+        datetime usedAt
+        timestamp createdAt
+        timestamp updatedAt
+    }
+```
+
+## API Design
+
+### RESTful Endpoints
+
+#### Event Management
+
+```typescript
+GET /api/events?status=scheduled&collegeId=123&type=Workshop
+GET /api/events/:eventId
+POST /api/events
+PUT /api/events/:eventId
+PATCH /api/events/:eventId/status
+DELETE /api/events/:eventId
+```
+
+#### Registration Management
+
+```typescript
+POST /api/events/:eventId/register
+DELETE /api/events/:eventId/register/:studentId
+GET /api/events/:eventId/registrations
+GET /api/students/:studentId/registrations
+POST /api/events/:eventId/waitlist
+GET /api/events/:eventId/waitlist/:studentId
+```
+
+#### Attendance Management
+
+```typescript
+POST /api/events/:eventId/attendance/token
+POST /api/events/:eventId/attendance/checkin
+POST /api/events/:eventId/attendance/manual
+GET /api/events/:eventId/attendance
+GET /api/events/:eventId/certificate/:studentId
+```
+
+#### Feedback Management
+
+```typescript
+POST /api/events/:eventId/feedback
+GET /api/events/:eventId/feedback
+GET /api/events/:eventId/feedback/summary
+```
+
+#### Analytics & Reporting
+
+```typescript
+GET /api/analytics/events/:eventId
+GET /api/analytics/colleges/:collegeId
+GET /api/analytics/top-events?limit=10&period=month
+GET /api/reports/attendance/:eventId?format=csv
+GET /api/reports/registrations/:eventId?format=pdf
+```
+
+### API Response Formats
+
+#### Success Response
+
+```typescript
+{
+  success: true,
+  data: any,
+  message?: string,
+  metadata?: {
+    total?: number,
+    page?: number,
+    limit?: number
+  }
+}
+```
+
+#### Error Response
+
+```typescript
+{
+  success: false,
+  error: {
+    code: string,
+    message: string,
+    details?: any
+  }
+}
+```
+
+## Workflows
+
+### 1. Event Registration Workflow
+
+```mermaid
+sequenceDiagram
+    participant S as Student
+    participant F as Frontend
+    participant A as API
+    participant D as Database
+    participant N as Notification
+    
+    S->>F: Browse Events
+    F->>A: GET /api/events
+    A->>D: Query available events
+    D-->>A: Return events list
+    A-->>F: Events data
+    F-->>S: Display events
+    
+    S->>F: Click "Register"
+    F->>A: POST /api/events/:id/register
+    A->>D: Check event capacity
+    
+    alt Capacity Available
+        D-->>A: Capacity OK
+        A->>D: Create registration record
+        D-->>A: Registration created
+        A-->>F: Success response
+        F-->>S: "Registration successful"
+        A->>N: Send confirmation email
+    else Event Full
+        D-->>A: Event at capacity
+        A->>D: Add to waitlist
+        D-->>A: Waitlist position
+        A-->>F: Waitlist response
+        F-->>S: "Added to waitlist (#X)"
+        A->>N: Send waitlist notification
+    end
+```
+
+### 2. Attendance Tracking Workflow
+
+```mermaid
+sequenceDiagram
+    participant S as Student
+    participant F as Frontend
+    participant A as API
+    participant T as Token Service
+    participant D as Database
+    participant C as Certificate Service
+    
+    Note over S,C: Event Day - Check-in Process
+    S->>F: Open event page
+    F->>A: GET /api/events/:id/attendance/token
+    A->>T: Generate QR token
+    T->>D: Store token with expiry
+    T-->>A: Return token
+    A-->>F: QR code data
+    F-->>S: Display QR code
+    
+    Note over S,C: At Event Location
+    S->>F: Show QR code to scanner
+    F->>A: POST /api/events/:id/attendance/checkin
+    A->>D: Validate token
+    
+    alt Valid Token
+        D-->>A: Token valid & unused
+        A->>D: Mark attendance
+        A->>D: Mark token as used
+        D-->>A: Attendance recorded
+        A-->>F: Check-in successful
+        F-->>S: "Checked in successfully"
+    else Invalid/Expired Token
+        D-->>A: Token invalid
+        A->>F: Error response
+        F-->>S: "Invalid token, please refresh"
+    end
+    
+    Note over S,C: Post-Event
+    S->>F: Request certificate
+    F->>A: GET /api/events/:id/certificate
+    A->>D: Verify attendance
+    D-->>A: Attendance confirmed
+    A->>C: Generate certificate
+    C-->>A: Certificate PDF
+    A-->>F: Certificate download
+    F-->>S: Download certificate
+```
+
+### 3. Event Lifecycle Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Scheduled : Publish Event
+    Scheduled --> Active : Event Start Time
+    Scheduled --> Cancelled : Cancel Event
+    Active --> Completed : Event End Time
+    Completed --> [*]
+    Cancelled --> [*]
+    
+    state Active {
+        [*] --> AcceptingRegistrations
+        AcceptingRegistrations --> CheckingAttendance : Registration Cutoff
+        CheckingAttendance --> [*]
+    }
+    
+    state Completed {
+        [*] --> CollectingFeedback
+        CollectingFeedback --> GeneratingCertificates
+        GeneratingCertificates --> [*]
+    }
+```
+
+## Assumptions & Edge Cases
+
+### Assumptions
+
+* Event Capacity: Events have fixed capacity limits
+* Registration Window: Until event starts
+* Attendance Window: 30 minutes before start until end
+* Feedback Window: 7 days post-event
+* Waitlist Order: FIFO
+* College Scoping: Events are college-specific
+* Single College Login: Users belong to one college
+* Unique Email: One account per email
+* Internet Connectivity: Required for QR scanning
+* Browser Support: Modern browsers
+* Token Expiry: 24 hours
+* Session Management: 7 days inactivity
+
+### Edge Cases & Handling
+
+* Duplicate Registration Attempts: Prevented via unique constraints
+* Concurrent Registration Race Conditions: Handled via DB transactions
+* Missing or Late Feedback: Automated reminders, grace period
+* Event Cancellation: Cancel registrations, notify students, clear waitlist
+* QR Token Conflicts: Unique token generation, validation with grace period
+* Capacity Changes After Registration: Move excess to waitlist, notify students
+* Network Connectivity Issues: Offline-first strategy, retry pending check-ins
+
+## Security Considerations
+
+* JWT Tokens for session management
+* Role-Based Access Control
+* College-scoped access
+* Input validation & sanitization
+* Rate limiting
+* Audit logging
+* QR code single-use & expiration, cryptographic checksums
+
+## Performance Considerations
+
+* Database indexing, query optimization, connection pooling
+* Caching frequently accessed data
+* Stateless API design for horizontal scaling
+* Background jobs for notifications and report generation
+* CDN for static assets

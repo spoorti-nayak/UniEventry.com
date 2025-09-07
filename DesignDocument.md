@@ -1,4 +1,4 @@
-# UniEventry.com - Technical Design Document
+UniEventry.com - Technical Design Document
 
 ## Table of Contents
 

@@ -11,37 +11,34 @@ const adminRoutes = require('./routes/admin');
 const eventsRoutes = require('./routes/events');
 const notesRoutes = require('./routes/notes');
 const feedbackRoutes = require('./routes/feedback');
-// Add other routes as needed (registrations, attendance, certificates, reports)
-// const registrationsRoutes = require('./routes/registrations');
-// const attendanceRoutes = require('./routes/attendance');
-// const certificatesRoutes = require('./routes/certificates');
-// const reportsRoutes = require('./routes/reports');
+const registrationsRoutes = require('./routes/registration');
+const attendanceRoutes = require('./routes/attendance');
+const reportsRoutes = require('./routes/report');
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*', // allow frontend URL
+  origin: process.env.FRONTEND_URL || '*',
   optionsSuccessStatus: 200
 }));
-app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '10mb' })); // parse JSON
+app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev')); // logging requests
+app.use(morgan('dev'));
 
 // Serve uploads and certificates statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/certificates', express.static(path.join(__dirname, 'certificates')));
 
 // Routes
- app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/feedback', feedbackRoutes);
-// app.use('/api/registrations', registrationsRoutes);
-// app.use('/api/attendance', attendanceRoutes);
-// app.use('/api/certificates', certificatesRoutes);
-// app.use('/api/reports', reportsRoutes);
+app.use('/api/registrations', registrationsRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

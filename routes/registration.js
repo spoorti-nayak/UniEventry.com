@@ -15,11 +15,15 @@ router.post('/', authenticateToken, requireSameCollege, [
     const { event_id } = req.body;
 
     // Check event capacity
+    // CORRECTED: Changed 'capacity' to 'max_participants' to match your database
     const [events] = await db.execute(
-      'SELECT capacity FROM events WHERE id = ? AND college_id = ?',
+      'SELECT max_participants FROM events WHERE id = ? AND college_id = ?',
       [event_id, req.user.college_id]
     );
     if (events.length === 0) return res.status(404).json({ error: 'Event not found' });
+
+    // Use the correct variable name
+    const capacity = events[0].max_participants;
 
     const [registeredCount] = await db.execute(
       'SELECT COUNT(*) as count FROM registrations WHERE event_id = ? AND status = "registered"',
@@ -28,7 +32,7 @@ router.post('/', authenticateToken, requireSameCollege, [
 
     let status = 'registered';
     let waitlist_position = null;
-    if (registeredCount[0].count >= events[0].capacity) {
+    if (registeredCount[0].count >= capacity) {
       status = 'waitlisted';
       const [maxPosition] = await db.execute(
         'SELECT MAX(waitlist_position) as max_pos FROM registrations WHERE event_id = ? AND status = "waitlisted"',

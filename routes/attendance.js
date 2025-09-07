@@ -17,11 +17,12 @@ router.post('/manual', authenticateToken, requireRole(['admin']), requireSameCol
     const { event_id, student_id } = req.body;
 
     // Check if student is registered
+    // CORRECTED: Changed 'status' to 'attendance_status' to match your database schema
     const [registration] = await db.execute(
-      'SELECT id FROM registrations WHERE event_id = ? AND student_id = ? AND status = "registered"',
+      'SELECT id FROM registrations WHERE event_id = ? AND student_id = ? AND attendance_status = "registered"',
       [event_id, student_id]
     );
-    if (registration.length === 0) return res.status(400).json({ error: 'Student not registered for event' });
+    if (registration.length === 0) return res.status(400).json({ error: 'Student not registered for this event' });
 
     // Mark attendance
     await db.execute(
